@@ -6,11 +6,23 @@ import random
 from scipy.spatial import distance
 import copy
 import seaborn as sns
+import plotly.express as px
 
 
 def distance_matrix(X):
     return distance.squareform(distance.pdist(X))
 
+def discrete_cmap(N, base_cmap=None):
+    """Create an N-bin discrete colormap from the specified input map"""
+
+    # Note that if base_cmap is a string or None, you can simply do
+    #    return plt.cm.get_cmap(base_cmap, N)
+    # The following works for string, None, or a colormap instance:
+
+    base = plt.cm.get_cmap(base_cmap)
+    color_list = base(np.linspace(0, 1, N))
+    cmap_name = base.name + str(N)
+    return base.from_list(cmap_name, color_list, N)
 
 def neighbours(X, D, i, eps):
     N = []
@@ -19,6 +31,8 @@ def neighbours(X, D, i, eps):
             N.append(i)
     return set(N)
 
+def get_cmap(n, name='hsv'):
+    return plt.cm.get_cmap(name, n)
 
 def db_scan(X, min_pts=0, eps=0):
 
@@ -61,54 +75,30 @@ def db_scan(X, min_pts=0, eps=0):
 X, Y = dt.make_moons(n_samples=100, noise=.1)
 label = db_scan(X, min_pts=3, eps=0.5)
 
-X[:, -1] = label
+label = [l + 1 for l in label]
 
-# rand_state = 11
-# color_map_discrete = matplotlib.colors.LinearSegmentedColormap.from_list(
-#     '', ['red', 'cyan', 'magenta', 'blue', 'gray', 'yellow'])
-# cdict = {-1: 'red', -2: 'blue', 0: 'green', 1: 'yellow',
-#          2: 'cyan', 3: 'magenta', 4: 'black', 5: 'orange', 6: 'gray',7: }
+# FIXME. color palette.
+# TODO. on real data.
+# 
 
-# fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(16, 5))
-# plt_ind_list = np.arange(3)+131s
+fig, ax = plt.subplots()
+fig.set_size_inches(10.5, 6.5, forward=True)
+print(len(set(label)))
+scatter = ax.scatter(X[:, 0], X[:, 1], c=label, cmap=discrete_cmap(len(set(label)), 'cubehelix'))
 
-# # for std, plt_ind in zip([0.5, 1, 10], plt_ind_list):
-# #     # x, label = dt.make_blobs(n_features=2,
-# #     #                          centers=4,
-# #     #                          cluster_std=std,
-# #     #                          random_state=rand_state)
 
-# #     plt.subplot(plt_ind)
-# #     my_scatter_plot = plt.scatter(x[:, 0],
-# #                                   x[:, 1],
-# #                                   c=label,
-# #                                   vmin=min(label),
-# #                                   vmax=max(label),
-# #                                   cmap=color_map_discrete)
-# #     plt.title('cluster_std: ' + str(std))
+# produce a legend with the unique colors from the scatter
+legend1 = ax.legend(*scatter.legend_elements(),
+                    title="Clusters", borderaxespad=0, bbox_to_anchor=(1.04, 1), loc='upper left')
+ax.add_artist(legend1)
 
-# x, label = dt.make_moons(n_samples=1500, noise=.1)
-# plt.subplot(plt_ind_list[0])
+# produce a legend with a cross section of sizes from the scatter
+handles, labels = scatter.legend_elements(prop="sizes", alpha=1)
 
-# fig, ax = plt.subplots()
-# for l in np.unique(label):
-#     ix = np.where(label == l)
-#     ax.scatter(X[:, 0], X[:, 1], label=l,
-#                vmin=min(label), vmax=max(label),)
-
-# ax.legend()
-# my_scatter_plot = plt.scatter(X[:, 0],
-#                               X[:, 1],
-#                               c=label,
-#                               vmin=min(label),
-#                               vmax=max(label),
-#                               color="smoker")
-# # plt.title('cluster_std')
-# plt.colorbar()
-
-# fig.subplots_adjust(hspace=0.3, wspace=.3)
-
-groups = X.groupby("Category")
-
-plt.suptitle('clusters', fontsize=20)
 plt.show()
+
+# X[:, -1] = label
+
+# sns.lmplot('carat', 'price', data=X, hue='color', fit_reg=False)
+# plt.suptitle('clusters', fontsize=10)
+# plt.show()
