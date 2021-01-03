@@ -20,7 +20,7 @@ def read_dataset(fname):
     return D
 
 
-def sup_count(D, min_sup=1):
+def sup_count(D):
     # set of frequent items and their support counts
     F = defaultdict(lambda: 0)
 
@@ -29,7 +29,7 @@ def sup_count(D, min_sup=1):
             F[item] += 1
 
     # filter by support threshold
-    F = dict(filter(lambda x: x[1] >= min_sup, dict(F).items()))
+    # F = dict(filter(lambda x: x[1] >= min_sup, dict(F).items()))
 
     # sort F in support count descending order as L, list of frequent items
     L = [k for k, v in sorted(
@@ -69,9 +69,9 @@ def insert_tree(tree, P, header=None, T=None, node='null'):
                     T=tree.subtree(N.identifier), node=node)
 
 
-def construct_tree(D, min_sup=1):
+def construct_tree(D):
     # get support count dict and list of frequent items
-    F, L = sup_count(D, min_sup)
+    F, L = sup_count(D)
     header = defaultdict(lambda: set())
 
     # create tree and the root node
@@ -93,55 +93,72 @@ def combinations(lst):
     return C
 
 def cpb(tree, header, beta):
-    base = set()
+    base = {}
     D = []
-    for item in header[beta]:
+    for item in header[beta[0]]:
         node = tree.get_node(item)
-        backtrace = set()
+        backtrace = ()
         while node.tag != 'null':
-            node = node.parent
-            backtrace.add(node.tag)
+            node = tree.get_node(node.bpointer)
+            if node.tag != 'null':
+                backtrace += (node.tag, )
         sup_count = tree.get_node(item).data
-        base[backtrace] = sup_count
+        if backtrace:
+            base[backtrace] = sup_count
         for _ in range(sup_count):
-            D.append(backtrace)
+            if backtrace:
+                D.append(backtrace)
     return base, D
 
     
 
-# FIXME. I am not sure if it's working
-# FIXME. things I am not sure of:
-# 1- what to do with the support scores.
 # 2- how exactly this works: what is beta?
 # 3- does my cpb work and construct tree for beta also working? check.
-# 4- where are we storing the patterns. 
-def fp_growth(tree, header, F, L, alfa=None):
+def fp_growth(tree, header, F, L, alfa=None, min_sup=3):
     pattern = []
 
     paths = tree.paths_to_leaves()
     # tree contains a single path
     if len(paths) == 1: 
-        P = paths[0]
+        # P = list(map(lambda x: tree.get_node(x).tag, paths[0]))[1: ]
+        P = paths[0][1:]
         for beta in combinations(P):
-            # sup_count = min([F[tree.get_node(b).tag] for b in beta])
-            pattern.append(set(beta) + set(alfa))
+            if beta:
+                sup_count = min([tree.get_node(b).data for b in beta])
+                beta = list(map(lambda x: tree.get_node(x).tag, beta))
+                # if sup_count >= min_sup:
+                if alfa:
+                    pattern += beta + alfa
+                else: 
+                    pattern += beta
     else:
-        for ai in header:
-            beta = set(ai) + set(alfa)
-            pattern.append(beta)
-            base, D = cpb(tree, header, beta)
-            beta_tree, beta_header, beta_F, beta_L =  construct_tree(D)
-            if len(beta_tree) != 0:
-                fp_growth(beta_tree, beta_header, beta_F, beta_L)
+        for item in list(header.keys())[::-1]:
+            for ai in header[item]:
+                # sup_count = tree.get_node(ai).data
+                ai = tree.get_node(ai).tag
+                if alfa:
+                    beta = [ai] + alfa
+                else:
+                    beta = [ai]
+                base, D = cpb(tree, header, beta)
+                if base:
+                    beta_tree, beta_header, beta_F, beta_L =  construct_tree(D)
+                else:
+                    beta_tree = None
+                if beta_tree and len(beta_tree) != 0:
+                    p = fp_growth(beta_tree, beta_header, beta_F, beta_L, beta)
+                pattern.append({tuple(p): sup_count})
+    return pattern
             
 
 
 
-D = read_dataset('dataset/data.csv')
-print(D)
+D = read_dataset('dataset/data0.csv')
 
-# tree = construct_tree(D)
-# fp_growth(tree)
+tree, header, F, L = construct_tree(D)
+pattern = fp_growth(tree, header, F, L)
+print(pattern)
+
 
 
 # create tree and the root node
