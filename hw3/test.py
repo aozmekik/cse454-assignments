@@ -110,11 +110,28 @@ def cpb(tree, header, beta):
                 D.append(backtrace)
     return base, D
 
+def clean_cpb(D, min_sup):
+    D = [('i2', 'i1'), ('i2', )]
+    item = defaultdict(lambda: 0)
+    for d in D:
+        for i in d:
+            item[i] += 1
+
+    new_D = []
+    for d in D:
+        m = ()
+        for i in d:
+            if item[i] >= min_sup:
+                m += (i, ) 
+        new_D.append(m)
+    return new_D
     
 
 # 2- how exactly this works: what is beta?
 # 3- does my cpb work and construct tree for beta also working? check.
-def fp_growth(tree, header, F, L, alfa=None, min_sup=3):
+# FIXME. aynı base context'i bilmediği için farklı treeler oluşuyor. normal.
+# pattern generation'da bir problem oluşturuyor mu diye kontrol et.
+def fp_growth(tree, header, F, L, alfa=None, min_sup=2):
     pattern = []
 
     paths = tree.paths_to_leaves()
@@ -126,28 +143,30 @@ def fp_growth(tree, header, F, L, alfa=None, min_sup=3):
             if beta:
                 sup_count = min([tree.get_node(b).data for b in beta])
                 beta = list(map(lambda x: tree.get_node(x).tag, beta))
-                # if sup_count >= min_sup:
-                if alfa:
-                    pattern += beta + alfa
-                else: 
-                    pattern += beta
+                if sup_count >= min_sup:
+                    if alfa:
+                        pattern.append(beta + alfa)
+                    else: 
+                        pattern.append(beta)
     else:
         for item in list(header.keys())[::-1]:
-            for ai in header[item]:
                 # sup_count = tree.get_node(ai).data
-                ai = tree.get_node(ai).tag
+                # ai = tree.get_node(ai).tagk
+                ai = item
                 if alfa:
                     beta = [ai] + alfa
                 else:
                     beta = [ai]
+                if alfa:
+                    pattern.append(beta)
                 base, D = cpb(tree, header, beta)
+                # D = clean_cpb(D, min_sup)
                 if base:
                     beta_tree, beta_header, beta_F, beta_L =  construct_tree(D)
                 else:
                     beta_tree = None
                 if beta_tree and len(beta_tree) != 0:
-                    p = fp_growth(beta_tree, beta_header, beta_F, beta_L, beta)
-                pattern.append({tuple(p): sup_count})
+                    pattern.append(fp_growth(beta_tree, beta_header, beta_F, beta_L, beta))
     return pattern
             
 
@@ -158,6 +177,7 @@ D = read_dataset('dataset/data0.csv')
 tree, header, F, L = construct_tree(D)
 pattern = fp_growth(tree, header, F, L)
 print(pattern)
+
 
 
 
