@@ -4,7 +4,9 @@ from collections import defaultdict
 import csv
 import warnings
 
-warnings.filterwarnings('ignore')
+# for to test our implementation
+import pyfpgrowth
+
 
 
 def read_dataset(fname):
@@ -65,7 +67,7 @@ def insert_tree(tree, P, header=None, T=None, node='null'):
     else:
         N = tree.create_node(tag=p, parent=get_node(T, node), data=1)
     node = N.tag
-    header[node].add(N.identifier)
+    header[node].append(N.identifier)
 
     if P:
         insert_tree(tree, P, header=header,
@@ -75,7 +77,7 @@ def insert_tree(tree, P, header=None, T=None, node='null'):
 def construct_tree(D):
     # get support count dict and list of frequent items
     F, L = sup_count(D)
-    header = defaultdict(lambda: set())
+    header = defaultdict(lambda: list())
 
     # create tree and the root node
     tree = Tree()
@@ -84,6 +86,13 @@ def construct_tree(D):
     for trans in D:
         trans = sort(trans, L)
         insert_tree(tree, P=trans, header=header, T=tree)
+
+    for k, v in header.items():
+        res = []
+        for i in header[k]:
+            if i not in res:
+                res.append(i)
+        header[k] = res
 
     # tree.show()
     return tree, header, F, L
@@ -97,22 +106,25 @@ def combinations(lst):
     return C
 
 
-def cpb(tree, header, beta):
+def cpb(tree, item):
     base = {}
     D = []
-    for item in header[beta[0]]:
-        node = tree.get_node(item)
-        backtrace = ()
-        while node.tag != 'null':
-            node = tree.get_node(node.predecessor(tree.identifier))
-            if node.tag != 'null':
-                backtrace += (node.tag, )
-        sup_count = tree.get_node(item).data
+    node = tree.get_node(item)
+    backtrace = ()
+    while node.tag != 'null':
+        node = tree.get_node(node.predecessor(tree.identifier))
+        if node.tag != 'null':
+            backtrace += (node.tag, )
+    sup_count = tree.get_node(item).data
+
+    # reverse trace because the order starts from root
+    backtrace = backtrace[:: -1]
+
+    if backtrace:
+        base[backtrace] = sup_count
+    for _ in range(sup_count):
         if backtrace:
-            base[backtrace] = sup_count
-        for _ in range(sup_count):
-            if backtrace:
-                D.append(backtrace)
+            D.append(backtrace)
     return base, D
 
 
@@ -139,60 +151,73 @@ def fp_growth(tree, header, F, L, alfa=None, min_sup=2):
     paths = tree.paths_to_leaves()
     # tree contains a single path
     if len(paths) == 1:
-        # P = list(map(lambda x: tree.get_node(x).tag, paths[0]))[1: ]
         P = paths[0][1:]
         for beta in combinations(P):
             if beta:
                 sup = min([tree.get_node(b).data for b in beta])
                 beta = list(map(lambda x: tree.get_node(x).tag, beta))
-                if sup >= min_sup:
-                    if alfa:
-                        pattern.append({tuple(beta + alfa): sup})
-                    else:
-                        pattern.append({tuple(beta): sup})
+                # if sup >= min_sup:
+                if alfa:
+                    pattern.append({tuple(beta + alfa): sup})
+                else:
+                    pattern.append({tuple(beta): sup})
     else:
         for ai in list(header.keys())[::-1]:
-            sup = tree.get_node(list(header[ai])[0]).data
-            if alfa:
-                beta = [ai] + alfa
-            else:
-                beta = [ai]
-            if alfa:
+            for node in header[ai]:
+                sup = tree.get_node(node).data
+                beta = [ai] + alfa if alfa else [ai]
+                # if alfa:
                 pattern.append({tuple(beta): sup})
-            base, D = cpb(tree, header, beta)
-            # D = clean_cpb(D, min_sup)
-            if base:
-                beta_tree, beta_header, beta_F, beta_L = construct_tree(D)
-            else:
-                beta_tree = None
-            if beta_tree and len(beta_tree) != 0:
-                pattern.append(
-                    fp_growth(beta_tree, beta_header, beta_F, beta_L, beta))
+                base, D = cpb(tree, node)
+                if base:
+                    beta_tree, beta_header, beta_F, beta_L = construct_tree(D)
+                else:
+                    beta_tree = None
+                if beta_tree and len(beta_tree) != 0:
+                    pattern += fp_growth(beta_tree,
+                                         beta_header, beta_F, beta_L, beta)
     return pattern
 
 
-D = read_dataset('dataset/data0.csv')
+def fpg(filename, min_sup=2, verbose=False):
+    D = read_dataset(filename)
 
-tree, header, F, L = construct_tree(D)
-pattern = fp_growth(tree, header, F, L)
+    tree, header, F, L = construct_tree(D)
+    pattern = fp_growth(tree, header, F, L)
 
-for p in pattern:
-    if p:
-        print(p)
+    P = defaultdict(lambda: 0)
+    for p in pattern:
+        for k, v in p.items():
+            P[k] += v
+    P = {k: v for k, v in dict(P).items() if v >= min_sup}
+
+    if verbose:
+        for k, v in P.items():
+            print(k, ':', v)
+    return P
+
+def test(fname):
+    D = []
+    # collect transactions from file
+    with open(fname, 'r') as file:
+        for trans in csv.reader(file):
+            D.append(list(trans))
+
+    patterns = pyfpgrowth.find_frequent_patterns(D, 2)
+    # for k, v in patterns.items():
+    #     print(k, ':', v)
+
+    ours = fpg(fname)
+    patterns = {tuple(sorted(k)): v for k, v in patterns.items()}
+    ours = {tuple(sorted(k)): v for k, v in ours.items()}
+
+    for k, v in patterns.items():
+        if k not in ours or v != ours[k]:
+            print('Fail!')
+            break
+    print('All matches!')
 
 
-# create tree and the root node
-# tree = Tree()
-# header = defaultdict(lambda: set())
-# tree.create_node('null', 'null')
+test('dataset/tesco2.csv')
 
-# insert_tree(tree, ['jane', 'semih'], header=header)
-# tree.show()
-
-# insert_tree(tree, ['jane', 'semih'], header=header)
-# tree.show()
-
-# insert_tree(tree, ['semih', 'jane'], header=header)
-
-# tree.show()
-# print(header)
+fpg('dataset/data0.csv', verbose=True)
