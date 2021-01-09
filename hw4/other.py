@@ -1,7 +1,7 @@
 from sklearn.datasets import load_iris
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold, cross_val_predict, cross_val_score, train_test_split
 import math
 
 # TODO.
@@ -14,11 +14,21 @@ import math
 # lda tool
 
 
-def accuracy_score(a, b):
-    '''
-        returns the percentage match score between the two sets.
-    '''
-    return np.sum(a == b) / a.shape[0]
+def f1_score(true, predict):
+    true = set([(k, v) for k, v in enumerate(true)])
+    predict = set([(k, v) for k, v in enumerate(predict)])
+    true = set(true)
+    predict = set(predict)
+    tp = len(true & predict)
+    fp = len(predict) - tp
+    fn = len(true) - tp
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    return (precision * recall) / (precision + recall)
+
+
+def accuracy_score(true, predict):
+    print('accuracy: ', np.sum(true == predict) / true.shape[0])
 
 
 def g(x, mean, std):
@@ -35,10 +45,12 @@ def test(X_train, Y_train, X_val, Y_val, categorical=False):
     else:
         model = GaussianNB()
     model.fit(X_train, Y_train)
-    print(accuracy_score(Y_val, model.predict(X_val)))
+    Y_pred = model.predict(X_val)
+    # accuracy_score(Y_val, Y_pred)
+    return f1_score(Y_val, Y_pred)
 
 
-def nb(X_train, Y_train, X_val, Y_val, categorical=False):
+def nb(X_train, Y_train, X_test, categorical=False):
     if categorical:
         # count dist.
         df = X_train.groupby(Y_train)
@@ -54,12 +66,12 @@ def nb(X_train, Y_train, X_val, Y_val, categorical=False):
     PCi = X_train.groupby(Y_train).apply(lambda x: len(x)) / X_train.shape[0]
 
     Y_pred = []
-    for i in range(X_val.shape[0]):  # row iterate
+    for i in range(X_test.shape[0]):  # row iterate
         p = {}
 
         for Ci in np.unique(Y_train):  # class iterate
             p[Ci] = PCi.iloc[Ci]
-            for j, val in enumerate(X_val.iloc[i]):  # column iterate
+            for j, val in enumerate(X_test.iloc[i]):  # column iterate
                 if categorical:
                     # applying laplace smooth 1.
                     V = count[j][Ci].sum() + distinct_cols[j]
@@ -69,15 +81,27 @@ def nb(X_train, Y_train, X_val, Y_val, categorical=False):
                     p[Ci] *= g(val, means.iloc[Ci, j], stds.iloc[Ci, j])
 
         Y_pred.append(pd.Series(p).values.argmax())
-
-    print(accuracy_score(Y_val, Y_pred))
-
-
-# data = load_iris()
+    return Y_pred
 
 
-# X, Y, column_names = data['data'], data['target'], data['feature_names']
-# X = pd.DataFrame(X, columns=column_names)
+data = load_iris()
+
+cv = KFold(n_splits=5, shuffle=True, random_state=0)
+
+X, Y, column_names = data['data'], data['target'], data['feature_names']
+X = pd.DataFrame(X, columns=column_names)
+
+my_score = []
+# true_score = []
+for train_index, test_index in cv.split(X):
+    X_train, X_test, Y_train, Y_test = X.iloc[train_index], X.iloc[test_index], Y[train_index], Y[test_index]
+
+    Y_pred = nb(X_train, Y_train, X_test)
+    my_score.append(f1_score(Y_test, Y_pred))
+    # true_score.append(test(X_train, Y_train, X_test, Y_test))
+
+print(np.mean(my_score))
+# print(np.mean(true_score))
 
 # print(X.head())
 # print(Y)
@@ -87,22 +111,24 @@ def nb(X_train, Y_train, X_val, Y_val, categorical=False):
 
 # nb(X_train, Y_train, X_val, Y_val)
 # test(X_train, Y_train, X_val, Y_val)
-df = pd.read_csv('data/tennis.csv')
-
-# df['play'] = df['play'].astype('category').cat.codes
-for col in df.columns:
-    df[col] = df[col].astype('category').cat.codes
-print(df.head())
-
-X = df.drop('play', axis=1)
-Y = df['play']
-Y = np.array(Y)
 
 
-X_train, X_val, Y_train, Y_val = train_test_split(X, Y, random_state=7)
-print(X_train.head())
-nb(X_train, Y_train, X_val, Y_val, categorical=True)
-test(X_train, Y_train, X_val, Y_val, categorical=True)
+# df = pd.read_csv('data/tennis.csv')
+
+# # df['play'] = df['play'].astype('category').cat.codes
+# for col in df.columns:
+#     df[col] = df[col].astype('category').cat.codes
+# print(df.head())
+
+# X = df.drop('play', axis=1)
+# Y = df['play']
+# Y = np.array(Y)
+
+
+# X_train, X_val, Y_train, Y_val = train_test_split(X, Y, random_state=7)
+# print(X_train.head())
+# nb(X_train, Y_train, X_val, Y_val, categorical=True)
+# test(X_train, Y_train, X_val, Y_val, categorical=True)
 
 
 # df = pd.read_csv('data/tennis.csv')
