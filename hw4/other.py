@@ -3,11 +3,11 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import KFold, cross_val_predict, cross_val_score, train_test_split
 import math
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+
 
 # TODO.
-# merge both of them.
-# implement f1 scores
-# k-cross validation
 # implement filter feature selection
 # implement wrapper feature selection
 # pca tool
@@ -84,66 +84,51 @@ def nb(X_train, Y_train, X_test, categorical=False):
     return Y_pred
 
 
-data = load_iris()
+def demo_numerical():
 
-cv = KFold(n_splits=5, shuffle=True, random_state=0)
+    data = load_iris()
 
-X, Y, column_names = data['data'], data['target'], data['feature_names']
-X = pd.DataFrame(X, columns=column_names)
+    cv = KFold(n_splits=5, shuffle=True, random_state=0)
 
-my_score = []
-# true_score = []
-for train_index, test_index in cv.split(X):
-    X_train, X_test, Y_train, Y_test = X.iloc[train_index], X.iloc[test_index], Y[train_index], Y[test_index]
+    X, Y, column_names = data['data'], data['target'], data['feature_names']
+    X = pd.DataFrame(X, columns=column_names)
 
-    Y_pred = nb(X_train, Y_train, X_test)
-    my_score.append(f1_score(Y_test, Y_pred))
-    # true_score.append(test(X_train, Y_train, X_test, Y_test))
+    my_score = []
+    true_score = []
+    for train_index, test_index in cv.split(X):
+        X_train, X_test, Y_train, Y_test = X.iloc[train_index], X.iloc[test_index], Y[train_index], Y[test_index]
 
-print(np.mean(my_score))
-# print(np.mean(true_score))
+        Y_pred = nb(X_train, Y_train, X_test)
+        my_score.append(f1_score(Y_test, Y_pred))
+        true_score.append(test(X_train, Y_train, X_test, Y_test))
 
-# print(X.head())
-# print(Y)
-
-
-# X_train, X_val, Y_train, Y_val = train_test_split(X, Y, random_state=44)
-
-# nb(X_train, Y_train, X_val, Y_val)
-# test(X_train, Y_train, X_val, Y_val)
+    print(np.mean(my_score))
+    print(np.mean(true_score))
 
 
-# df = pd.read_csv('data/tennis.csv')
+def demo_categorical():
+    df = pd.read_csv('data/tennis.csv')
 
-# # df['play'] = df['play'].astype('category').cat.codes
-# for col in df.columns:
-#     df[col] = df[col].astype('category').cat.codes
-# print(df.head())
+    for col in df.columns:
+        df[col] = df[col].astype('category').cat.codes
 
-# X = df.drop('play', axis=1)
-# Y = df['play']
-# Y = np.array(Y)
+    X = df.drop('play', axis=1)
+    Y = df['play']
+    Y = np.array(Y)
 
+    cv = KFold(n_splits=5, shuffle=True, random_state=0)
 
-# X_train, X_val, Y_train, Y_val = train_test_split(X, Y, random_state=7)
-# print(X_train.head())
-# nb(X_train, Y_train, X_val, Y_val, categorical=True)
-# test(X_train, Y_train, X_val, Y_val, categorical=True)
+    my_score = []
+    true_score = []
+    for train_index, test_index in cv.split(X):
+        X_train, X_test, Y_train, Y_test = X.iloc[train_index], X.iloc[test_index], Y[train_index], Y[test_index]
 
+        Y_pred = nb(X_train, Y_train, X_test, categorical=True)
+        my_score.append(f1_score(Y_test, Y_pred))
+        true_score.append(test(X_train, Y_train, X_test, Y_test, categorical=True))
 
-# df = pd.read_csv('data/tennis.csv')
+    print(np.mean(my_score))
+    print(np.mean(true_score))
 
-# # df['play'] = df['play'].astype('category').cat.codes
-# for col in df.columns:
-#     df[col] = df[col].astype('category').cat.codes
-
-# X = df.drop('play', axis=1)
-# Y = df['play']
-# Y = np.array(Y)
-
-
-# X_train, X_val, Y_train, Y_val = train_test_split(X, Y, random_state=20)
-# print(X_train.head())
-
-
-# test_2(X_train, Y_train, X_val, Y_val)
+demo_numerical()
+demo_categorical()
