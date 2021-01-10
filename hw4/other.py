@@ -1,10 +1,10 @@
-from sklearn.datasets import load_iris
+from sklearn.datasets import load_iris, load_breast_cancer
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import KFold, cross_val_predict, cross_val_score, train_test_split
 import math
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
 
 # TODO.
@@ -84,14 +84,25 @@ def nb(X_train, Y_train, X_test, categorical=False):
     return Y_pred
 
 
-def demo_numerical():
-
-    data = load_iris()
-
-    cv = KFold(n_splits=5, shuffle=True, random_state=0)
+def demo_numerical(pca=False, lda=False):
+    data = load_breast_cancer()
 
     X, Y, column_names = data['data'], data['target'], data['feature_names']
     X = pd.DataFrame(X, columns=column_names)
+
+    if pca:
+        print(X.shape)
+        pca = PCA(n_components=4)
+        X = pd.DataFrame(data=pca.fit_transform(X))
+        print(X.shape)
+    if lda:
+        print(X.shape)
+        lda = LinearDiscriminantAnalysis()
+        X = pd.DataFrame(data=lda.fit_transform(X, Y))
+        print(X.shape)
+
+
+    cv = KFold(n_splits=5, shuffle=True, random_state=0)
 
     my_score = []
     true_score = []
@@ -125,10 +136,17 @@ def demo_categorical():
 
         Y_pred = nb(X_train, Y_train, X_test, categorical=True)
         my_score.append(f1_score(Y_test, Y_pred))
-        true_score.append(test(X_train, Y_train, X_test, Y_test, categorical=True))
+        true_score.append(
+            test(X_train, Y_train, X_test, Y_test, categorical=True))
 
     print(np.mean(my_score))
     print(np.mean(true_score))
 
+
+
+# demo_numerical()
+# demo_categorical()
+
 demo_numerical()
-demo_categorical()
+demo_numerical(pca=True)
+demo_numerical(lda=True)
