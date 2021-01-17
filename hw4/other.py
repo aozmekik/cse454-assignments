@@ -5,13 +5,8 @@ from sklearn.model_selection import KFold, cross_val_predict, cross_val_score, t
 import math
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-
-
-# TODO.
-# implement filter feature selection
-# implement wrapper feature selection
-# pca tool
-# lda tool
+from sklearn.feature_selection import SelectKBest, f_classif, chi2
+import statsmodels.api as sm
 
 
 def f1_score(true, predict):
@@ -84,22 +79,29 @@ def nb(X_train, Y_train, X_test, categorical=False):
     return Y_pred
 
 
-def demo_numerical(pca=False, lda=False):
-    data = load_breast_cancer()
+def demo_numerical(pca=False, process=None):
+    data = load_iris()
 
     X, Y, column_names = data['data'], data['target'], data['feature_names']
     X = pd.DataFrame(X, columns=column_names)
 
-    if pca:
+    if process == "pca":
         print(X.shape)
-        pca = PCA(n_components=4)
+        pca = PCA(n_components=2)
         X = pd.DataFrame(data=pca.fit_transform(X))
         print(X.shape)
-    if lda:
+    elif process == "lda":
         print(X.shape)
         lda = LinearDiscriminantAnalysis()
         X = pd.DataFrame(data=lda.fit_transform(X, Y))
         print(X.shape)
+    elif process == "filter":
+        X = filter_fs(X, Y)
+        print(X)
+    elif process == "wrapper":
+        X = wrapper_fs(X, Y)
+        print(X)
+
 
 
     cv = KFold(n_splits=5, shuffle=True, random_state=0)
@@ -114,7 +116,7 @@ def demo_numerical(pca=False, lda=False):
         true_score.append(test(X_train, Y_train, X_test, Y_test))
 
     print(np.mean(my_score))
-    print(np.mean(true_score))
+    # print(np.mean(true_score))
 
 
 def demo_categorical():
@@ -140,13 +142,48 @@ def demo_categorical():
             test(X_train, Y_train, X_test, Y_test, categorical=True))
 
     print(np.mean(my_score))
-    print(np.mean(true_score))
+    # print(np.mean(true_score))
 
 
+def filter_fs(X, Y):
+    model = SelectKBest(chi2, k=14)
+    new = model.fit(X, Y)
+    print(X.shape)
+    X_new = new.transform(X)
+    print(X_new.shape)
+    return pd.DataFrame(X_new)
 
-# demo_numerical()
-# demo_categorical()
+
+def wrapper_fs(X, Y):
+    features = forward_selection(X, Y)
+    print(X.shape)
+    X = X.drop([feature for feature in X.columns if feature not in features], axis=1)
+    print(X.shape)
+    return X
+
+
+def forward_selection(data, target, significance_level=0.05):
+    initial_features = data.columns.tolist()
+    best_features = []
+    while (len(initial_features) > 0):
+        remaining_features = list(set(initial_features)-set(best_features))
+        new_pval = pd.Series(index=remaining_features, dtype='float64')
+        for new_column in remaining_features:
+            model = sm.OLS(target, sm.add_constant(
+                data[best_features+[new_column]])).fit()
+            new_pval[new_column] = model.pvalues[new_column]
+        min_p_value = new_pval.min()
+        if(min_p_value < significance_level):
+            best_features.append(new_pval.idxmin())
+        else:
+            break
+    return best_features
 
 demo_numerical()
-demo_numerical(pca=True)
-demo_numerical(lda=True)
+demo_categorical()
+
+# demo_numerical()
+# demo_numerical(process="filter")
+# demo_numerical(process="wrapper")
+# demo_numerical(process="pca")
+# demo_numerical(process="lda")
