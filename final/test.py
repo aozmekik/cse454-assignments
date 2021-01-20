@@ -17,30 +17,23 @@ TurkishSentenceNormalizer: JClass = JClass(
 
 Paths: JClass = JClass('java.nio.file.Paths')
 
+morphology = TurkishMorphology.createWithDefaults()
+
 
 def stem(text: str) -> str:
-    morphology = TurkishMorphology.createWithDefaults()
+    results: WordAnalysis = morphology.analyze(JString(text))
+    for result in results:
+        return str(result.getLemmas()[0])
 
-    analysis: java.util.ArrayList = (
-        morphology.analyzeAndDisambiguate(text).bestAnalysis()
-    )
 
-    pos: List[str] = []
-    for i, analysis in enumerate(analysis, start=1):
-        pos.append(
-            f'{str(analysis.getLemmas()[0])}'
-        )
-    return ' '.join(pos)
+normalizer = TurkishSentenceNormalizer(
+    TurkishMorphology.createWithDefaults(),
+    Paths.get(str(DATA_PATH.joinpath('normalization'))),
+    Paths.get(str(DATA_PATH.joinpath('lm', 'lm.2gram.slm'))),
+)
 
 
 def normalize(text: str) -> str:
-
-    normalizer = TurkishSentenceNormalizer(
-        TurkishMorphology.createWithDefaults(),
-        Paths.get(str(DATA_PATH.joinpath('normalization'))),
-        Paths.get(str(DATA_PATH.joinpath('lm', 'lm.2gram.slm'))),
-    )
-
     return normalizer.normalize(JString(text))
 
 
@@ -48,20 +41,22 @@ def fps(text: str, n) -> str:
     return ' '.join([w[: n] for w in text.split()])
 
 
-def preprocess(x, stemming=None):
-    x = x.strip()
+def preprocess(x, stemming=None, stopword=False):
     x = normalize(x)
     x = remove_punctuation(x)
     x = tokenize(x)
-    x = remove_stopwords(x)
-    if stemming == 'zemberek':
-        x = tokenize(stem(' '.join(x)))
+    if stopword:
+        x = remove_stopwords(x)
+    if stemming == 'zemb':
+        x = [stem(w) for w in x]
+        x = [w for w in x if w]
+        # x = tokenize(stem(' '.join(x)))
     elif stemming == 'fps5':
         x = tokenize(fps(' '.join(x), 5))
     elif stemming == 'fps7':
         x = tokenize(fps(' '.join(x), 7))
 
-    return x
+    return ' '.join(x).strip()
 
 
 def remove_punctuation(x):
@@ -76,20 +71,8 @@ def remove_stopwords(x):
     return [w for w in x if not trstop.is_stop_word(w)]
 
 
-file_name = 'TTC-3600/TTC-3600_Orj/ekonomi/c (1).txt'
+# file_name = 'TTC-3600/TTC-3600_Orj/ekonomi/c (1).txt'
 
-with open(file_name) as file:
-    text = file.read()
+# with open(file_name) as file:
+#     text = file.read()
 
-
-print(text)
-print(preprocess(text))
-
-x = preprocess(text, stemming='zemberek')
-print(x)
-
-x = preprocess(text, stemming='fps5')
-print(x)
-
-x = preprocess(text, stemming='fps7')
-print(x)
