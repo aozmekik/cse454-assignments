@@ -4,42 +4,14 @@ import matplotlib.pyplot as plt
 
 import sklearn.datasets as dt
 from sklearn.cluster import DBSCAN
-from sklearn.datasets.samples_generator import make_blobs
-from sklearn.preprocessing import StandardScaler
 
 import random
 from scipy.spatial import distance
 import copy
-import seaborn as sns
-import plotly.express as px
-
-
-# TODO. find a real dataset with two dims
-# TODO. prepare a report.
 
 
 def distance_matrix(X):
     return distance.squareform(distance.pdist(X))
-
-
-def discrete_cmap(N):
-    """Create an N-bin discrete colormap for N discrete items"""
-
-    # lineer color palette generated for N labels.
-    base = plt.cm.gist_ncar
-    color_list = base(np.linspace(0, 0.9, N))
-
-    # pushing similar colors apart
-    N = len(color_list)
-    for i in range(0, int(N/2)):
-        if i % 2 == 0:
-            j = N-i-1
-            color_list[j], color_list[i] = copy.deepcopy(
-                color_list[i]), copy.deepcopy(color_list[j])
-
-    cmap_name = base.name + str(N)
-    return base.from_list(cmap_name, color_list, N)
-
 
 def neighbours(X, D, i, eps):
     N = []
@@ -47,14 +19,6 @@ def neighbours(X, D, i, eps):
         if dist < eps:
             N.append(i)
     return N
-
-# def neighbours(X, i, eps):
-#     N = []
-#     for p in range(0, len(X)):
-#         if np.linalg.norm(X[i] - X[p]) < eps:
-#             N.append(p)
-#     return N
-
 
 def get_cmap(n, name='hsv'):
     return plt.cm.get_cmap(name, n)
@@ -82,7 +46,6 @@ def db_scan(X, eps=0, min_pts=0):
 
         Ci += 1
         labels[p] = Ci
-
 
         # N \ {p}
         S = copy.deepcopy(N)
@@ -123,30 +86,24 @@ def test(X, Y, eps, min_pts):
         print('FAIL -', fail, 'labels don\'t match.')
 
 
-# X, Y = dt.make_moons(n_samples=100, noise=.1)
-centers = [[1, 1], [-1, -1], [1, -1]]
-X, labels_true = make_blobs(n_samples=750, centers=centers, cluster_std=0.4,
+n_samples = 750
+# X, _ = dt.make_moons(n_samples=n_samples, noise=.1)
+# X, _ = dt.make_circles(n_samples=n_samples, factor=.5, noise=.05)
+
+centers = [[1, 1], [-1, -1], [1, -1], [-1, 1]]
+X, _ = dt.make_blobs(n_samples=n_samples, centers=centers, cluster_std=0.4,
                             random_state=0)
 
-X = StandardScaler().fit_transform(X)
 
-Y = db_scan(X, eps=0.1, min_pts=2)
+Y = db_scan(X, eps=0.28, min_pts=40)
 
-test(X, Y, 0.1, 2)
+# test(X, Y, 0.2, 10)
 
-# fig, ax = plt.subplots()
-# fig.set_size_inches(10.5, 6.5, forward=True)
+fig, ax = plt.subplots()
+fig.set_size_inches(10.5, 6.5, forward=True)
 
-# scatter = ax.scatter(X[:, 0], X[:, 1], c=Y,
-#                      cmap=discrete_cmap(len(set(Y))))
-
-
-# # produce a legend with the unique colors from the scatter
-# legend1 = ax.legend(*scatter.legend_elements(),
-#                     title="Clusters", borderaxespad=0, bbox_to_anchor=(1.04, 1), loc='upper left')
-# ax.add_artist(legend1)
-
-# # produce a legend with a cross section of sizes from the scatter
-# handles, labels = scatter.legend_elements(prop="sizes", alpha=1)
-
-# plt.show()
+for y in np.unique(Y):
+    i = np.where(Y == y)
+    ax.scatter(X[i][:, 0], X[i][:, 1], label=y)
+ax.legend()
+plt.show()
