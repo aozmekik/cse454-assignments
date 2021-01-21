@@ -42,6 +42,7 @@ def fps(text: str, n) -> str:
 
 
 def preprocess(x, stemming=None, stopword=False):
+    x = strip_numbers(x)
     x = normalize(x)
     x = remove_punctuation(x)
     x = tokenize(x)
@@ -55,7 +56,7 @@ def preprocess(x, stemming=None, stopword=False):
         x = tokenize(fps(' '.join(x), 5))
     elif stemming == 'fps7':
         x = tokenize(fps(' '.join(x), 7))
-
+    
     return ' '.join(x).strip()
 
 
@@ -69,6 +70,9 @@ def tokenize(x):
 
 def remove_stopwords(x):
     return [w for w in x if not trstop.is_stop_word(w)]
+
+def strip_numbers(x):
+    return re.sub(' +', ' ', re.sub(r'\d+', '', x)).strip()
 
 
 # file_name = 'TTC-3600/TTC-3600_Orj/ekonomi/c (1).txt'

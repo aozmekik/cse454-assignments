@@ -5,15 +5,23 @@ from sklearn.metrics import confusion_matrix, accuracy_score
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.model_selection import KFold, train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
 import os
 import numpy as np
 import pickle
 from test import *
+from cfs import CFS
 
 target_names = ['ekonomi', 'kultursanat',
-                    'saglik', 'siyaset', 'spor', 'teknoloji']
-def get_dataset(preprocess, save=None):
+                'saglik', 'siyaset', 'spor', 'teknoloji']
+
+
+def save_dataset(preprocess, save=None):
     dataset = 'TTC-3600/TTC-3600_Orj'
 
     X, y = [],  []
@@ -36,9 +44,9 @@ def get_dataset(preprocess, save=None):
     return X, y
 
 
-def read_ds(ds):
+def load_dataset(ds):
     objects = []
-    with (open("processed/" + ds, "rb")) as openfile:
+    with (open('processed/' + ds, 'rb')) as openfile:
         while True:
             try:
                 objects.append(pickle.load(openfile))
@@ -47,42 +55,64 @@ def read_ds(ds):
     return objects[0]
 
 
-# get_dataset(preprocess=preprocess, save='originalds')
-# get_dataset(preprocess=lambda x: preprocess(x, stemming='fps5'), save='f5ds')
-# get_dataset(preprocess=lambda x: preprocess(x, stemming='fps7'), save='f7ds')
-# get_dataset(preprocess=lambda x: preprocess(x, stemming='zemb'), save='zembds')
-
-
-# get_dataset(preprocess=lambda x: preprocess(
-#     x, stopword=True), save='originalds_stopword')
-# get_dataset(preprocess=lambda x: preprocess(
-#     x, stemming='fps5', stopword=True), save='f5ds_stopword')
-# get_dataset(preprocess=lambda x: preprocess(
-#     x, stemming='fps7', stopword=True), save='f7ds_stopword')
-# get_dataset(preprocess=lambda x: preprocess(
-#     x, stemming='zemb', stopword=True), save='zembds_stopword')
-
-X, y = read_ds('f7ds_stopword')
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42)
-
 sns.set()  # use seaborn plotting style
 
-model = make_pipeline(TfidfVectorizer(), MultinomialNB())
-# Train the model using the training data
-model.fit(X_train, y_train)
-# Predict the categories of the test data
-predicted_categories = model.predict(X_test)
+
+class Classifier:
+    __RANDOM_STATE = 42
+
+    def __init__(self, dataset, method, max_features=None, fs=None):
+        self.X, self.y = load_dataset(dataset)
+        self.X = [strip_numbers(x) for x in self.X]
+
+        tfidfconverter = TfidfVectorizer(max_features=5000)
+        self.X = tfidfconverter.fit_transform(self.X).toarray()
+
+        if method == 'NB':
+            self.model = MultinomialNB()
+        elif method == 'RF':
+            self.model = RandomForestClassifier(
+                max_depth=128, random_state=self.__RANDOM_STATE)
+        elif method == 'SVM':
+            self.model = SVC(C=1.0, kernel='linear', degree=3,
+                             gamma='auto', cache_size=7000)
+        elif method == 'KNN':
+            self.model = KNeighborsClassifier(n_neighbors=5)
+        elif method == 'J48':
+            self.model = DecisionTreeClassifier()
+
+        if fs == 'cfs':
+            idx = CFS.cfs(self.X, self.y)
+            print(idx)
+
+    def fit(self):
+        cv = KFold(n_splits=5, shuffle=True, random_state=0)
+        score = []
+        for train_index, test_index in cv.split(self.X):
+            X_train, X_test, y_train, y_test = self.X[train_index], self.X[
+                test_index], self.y[train_index], self.y[test_index]
+
+            self.model.fit(X_train, y_train)
+            y_pred = self.model.predict(X_test)
+            score.append(accuracy_score(y_test, y_pred))
+        print(np.mean(score))
+
+    def cfmatrix(self, y_test, y_pred):
+        # plot the confusion matrix
+        mat = confusion_matrix(y_test, y_pred)
+        sns.heatmap(mat.T, square=True, annot=True, fmt='d',
+                    xticklabels=target_names, yticklabels=target_names)
+        plt.xlabel('true labels')
+        plt.ylabel('predicted label')
+        plt.show()
 
 
-# plot the confusion matrix
-mat = confusion_matrix(y_test, predicted_categories)
-sns.heatmap(mat.T, square=True, annot=True, fmt="d",
-            xticklabels=target_names, yticklabels=target_names)
-plt.xlabel("true labels")
-plt.ylabel("predicted label")
-plt.show()
+# methods = ['J48']
 
+cf = Classifier(dataset='zembds_stopword', method='NB', fs='cfs')
+cf.fit()
 
-print("The accuracy is {}".format(accuracy_score(y_test, predicted_categories)))
+# CFS.cfs(X, y)
+
+# rf(X, y)
+# j48(X, y)
