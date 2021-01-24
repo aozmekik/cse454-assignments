@@ -21,11 +21,13 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.linear_model import LogisticRegression
 
 import os
 import numpy as np
 import pickle
 from test import *
+
 
 target_names = ['ekonomi', 'kultursanat',
                 'saglik', 'siyaset', 'spor', 'teknoloji']
@@ -71,7 +73,7 @@ sns.set()  # use seaborn plotting style
 class Classifier:
     __RANDOM_STATE = 42
 
-    def __init__(self, dataset, method, max_features=8000, fs=None, n_fea='all', vector='tfidf'):
+    def __init__(self, dataset, method, max_features=8000, n_fea='all', vector='tfidf'):
         self.dataset = dataset
         self.vector = vector
         self.X, self.y = load_dataset(dataset)
@@ -86,7 +88,7 @@ class Classifier:
             self.model = RandomForestClassifier(
                 max_depth=128, random_state=self.__RANDOM_STATE)
         elif method == 'SVM LINEAR':
-            self.model = LinearSVC(cache_size=7000)
+            self.model = LinearSVC()
         elif method == 'SVM RBF':
             self.model = SVC(kernel='rbf', gamma=1, cache_size=7000)
         elif method == 'KNN':
@@ -95,6 +97,9 @@ class Classifier:
             self.model = DecisionTreeClassifier()
         elif method == 'ROCCHIO':
             self.model = NearestCentroid()
+        elif method == 'LR':
+            self.model = LogisticRegression(C=1.0)
+
 
         if vector == 'tfidf':
             self.vectorizer = TfidfVectorizer(max_features=self.max_features)
@@ -166,19 +171,24 @@ class Classifier:
         print('f1-score:   {0:0.4f}'.format(score))
 
 
+
+
+
+
+# machine learning models
+methods = ['NB', 'RF', 'SVM LINEAR', 'SVM RBF', 'KNN', 'CART', 'ROCCHIO', 'LR']
+
+
 # preprocessing features
 datasets = ['originalds', 'zembds', 'f5ds', 'f7ds', 'originalds_stopword',
             'zembds_stopword', 'f5ds_stopword', 'f7ds_stopword']
-
-# machine learning models
-methods = ['RF', 'SVM LINEAR', 'SVM RBF', 'KNN', 'CART', 'ROCCHIO']
 
 # post processing features
 vectors = ['tfidf', 'bagofwords']
 n_features = [500, 1000, 2000, 5000, 'all']
 
-for dataset in datasets:
-    for method in methods:
+for method in methods:
+    for dataset in datasets:
         for vector in vectors:
             for n_fea in n_features:
                 cf = Classifier(dataset=dataset, method=method,

@@ -2,9 +2,11 @@ __pycache__/
 .env
 .mypy_cache/
 .vscode/
-bin/*.jar
 data/classification/news*
 data/lm/lm.2gram.slm
 data/normalization/ascii-map
 data/normalization/lookup-from-graph
 data/normalization/split
+.ipynb_checkpoints
+TTC-3600/
+processed/
