@@ -35,10 +35,6 @@ class SVMTrainer(object):
         support_vectors = X[support_vector_indices]
         support_vector_labels = y[support_vector_indices]
 
-        # http://www.cs.cmu.edu/~guestrin/Class/10701-S07/Slides/kernels.pdf
-        # bias = y_k - \sum z_i y_i  K(x_k, x_i)
-        # Thus we can just predict an example with bias of zero, and
-        # compute error.
         bias = np.mean(
             [y_k - SVMPredictor(
                 kernel=self._kernel,
